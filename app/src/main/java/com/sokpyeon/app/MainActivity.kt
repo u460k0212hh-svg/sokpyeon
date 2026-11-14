@@ -203,7 +203,7 @@ class SokpyeonEngine private constructor(private val ctx: Context) {
     internal val sensitivity = mutableStateOf(1)            // 0: 거의 안 해요, 1: 가끔 해요, 2: 자주 해요
     internal val listening = mutableStateOf(false)
     internal val heardKeyword = mutableStateOf("")          // 들은 '단어'만 표시 (대화 원문은 표시·저장하지 않음)
-    internal val guideText = mutableStateOf("주행을 시작하면 승차감을 살펴볼게요.")
+    internal val guideText = mutableStateOf("아직 알린 내용이 없어요.")
     internal val lastEvent = mutableStateOf("")
     internal val guideHistory = mutableStateListOf<String>()   // 화면용 안내 기록
     // 이번 주행 기록 (주행 후 화면): 경과 시간, 내용, 종류(1 울컥 2 급가속 3 급제동 4 급커브 5 음성 안내 6 멀미 신호)
@@ -737,7 +737,7 @@ class SokpyeonEngine private constructor(private val ctx: Context) {
             listOf(
                 "동승자가 멀미를 느끼고 있어요. 앞차와 간격을 조금 넓히고, 페달에서 천천히 발을 떼 보세요.",
                 "동승자가 불편해해요. 회생제동 단계를 한 단계 낮추고, 부드럽게 속도를 줄여 보세요.",
-                "동승자가 멀미 중이에요. 바깥 공기로 바꿀게요. 조금만 더 부드럽게 운전해 주세요."
+                "동승자가 멀미 중이에요. 외기 유입으로 바꿀게요. 조금만 더 부드럽게 운전해 주세요."
             ),
             now,
             urgent = true
@@ -788,7 +788,7 @@ class SokpyeonEngine private constructor(private val ctx: Context) {
                     log("조명 확인 응답: 영역 ${areas.size}개")
                     val area = areas.firstOrNull() ?: SeatArea(SeatValue.ROW_1_LEFT)
                     light.setAmbientLightBrightnessColor(area, 0x3DD6B5,
-                        { _, _ -> log("조명 변경 성공"); ui { addCabin("조명 안정색") } },
+                        { _, _ -> log("조명 변경 성공"); ui { addCabin("무드 조명") } },
                         { e -> log("조명 오류: $e") })
                 },
                 { e -> log("조명 확인 오류: $e") }
@@ -929,7 +929,7 @@ class SokpyeonEngine private constructor(private val ctx: Context) {
         inEvent = false; inCurve = false; lastTickT = -1L; filteredSpeed = 0f
         if (listening.value) stopListening(SystemClock.elapsedRealtime())
         listenCooldownUntil = 0L
-        guideText.value = "주행을 시작하면 승차감을 살펴볼게요."
+        guideText.value = "아직 알린 내용이 없어요."
         lastEvent.value = ""; cabinText.value = ""; heardKeyword.value = ""
         chartSpeeds.clear(); chartMarks.clear(); chartGuides.clear(); guideHistory.clear(); tripLog.clear(); tripStart = 0L
         log("초기화")
@@ -1260,7 +1260,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Step(1, "흔들림을 살펴요", "차의 속도·브레이크·진행 방향으로 회생제동 울컥임과 급커브를 읽어요.")
                         Step(2, "필요할 때만 들어요", "흔들림이 쌓일 때만 잠깐 '멀미'라는 말을 들어요. 대화는 보여 주거나 저장하지 않아요.")
-                        Step(3, "대신 전하고 줄여요", "운전자에게는 음성으로 부드럽게 알리고, 바깥 공기와 실내 조명을 바꿔요.")
+                        Step(3, "대신 전하고 줄여요", "운전자에게는 음성으로 부드럽게 알리고, 외기 유입을 켜고 무드 조명을 차분한 색으로 바꿔요.")
                         Step(4, "내비와 함께 써요", "화면에 내비를 띄워 둬도 뒤에서 계속 살피고 음성으로 알려요.")
                     }
                     Box(
@@ -1372,14 +1372,14 @@ class MainActivity : ComponentActivity() {
         Panel(Modifier.fillMaxWidth()) {
             Text("실내 환경", fontSize = TS.labelS, color = p.text3)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                CabinState("바깥 공기", cabinText.value.contains("외기"), Modifier.weight(1f))
-                CabinState("실내 조명 안정색", cabinText.value.contains("조명"), Modifier.weight(1f))
+                CabinState("외기 유입", "켰어요", "필요할 때 켜요", cabinText.value.contains("외기"), Modifier.weight(1f))
+                CabinState("무드 조명", "차분한 색으로 바꿨어요", "필요할 때 바꿔요", cabinText.value.contains("조명"), Modifier.weight(1f))
             }
         }
     }
 
     @Composable
-    private fun CabinState(label: String, on: Boolean, modifier: Modifier) {
+    private fun CabinState(label: String, onText: String, offText: String, on: Boolean, modifier: Modifier) {
         val p = LocalPal.current
         Row(
             modifier.heightIn(min = 64.dp).clip(RoundedCornerShape(16.dp))
@@ -1390,7 +1390,7 @@ class MainActivity : ComponentActivity() {
             Column {
                 Text(label, fontSize = TS.labelS, lineHeight = TS.labelSLH,
                     color = if (on) p.brand else p.text2, fontWeight = FontWeight.SemiBold)
-                Text(if (on) "바꿨어요" else "필요할 때 바꿔요", fontSize = 18.sp, lineHeight = 22.sp, color = p.text3)
+                Text(if (on) onText else offText, fontSize = 18.sp, lineHeight = 22.sp, color = p.text3)
             }
         }
     }
@@ -1792,4 +1792,5 @@ class MainActivity : ComponentActivity() {
                 .padding(horizontal = 18.dp, vertical = 10.dp)
         ) { Text(text, fontSize = TS.labelS, color = color, fontWeight = FontWeight.SemiBold) }
     }
+
 }
